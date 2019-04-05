@@ -1,0 +1,69 @@
+
+#btn-row-1, #btn-row-2 {
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+.btn-loc, .btn-story {
+    cursor: pointer;
+    background-color: white;
+    border: 1px solid black;
+}
+
+.btn-loc:focus, .btn-story:focus {
+    outline: none !important;
+}
+
+.btn-active {
+    background-color: black !important;
+    color: white !important;
+}
+
+.g-axis .domain {
+    opacity: 0;
+}
+
+.line-util {
+    stroke-width: 1px;
+    /* stroke:	#BDBDBD; */
+    stroke: #616161;
+}
+
+.line-violated, .expired {
+    stroke: #EF5350;
+}
+
+.line-boundary {
+    stroke-width: 1px;
+    stroke: #BDBDBD;
+}
+
+.hidden {
+    /* opacity: 0; */
+    display: none;
+}
+
+.line-unused {
+    stroke-width: 1px;
+    stroke: #FFC107;
+}
+
+.line-vacant {
+    stroke-width: 1px;
+    stroke: #616161;
+}
+
+.non-business {
+    stroke: #81D4FA;
+    /* opacity: 0.4; */
+}
+
+.quarter-line {
+    stroke: white;
+    stroke-width: 1px;
+}
+
+.line-business {
+    stroke-width: 1px;
+    stroke: #E0E0E0;
+}
