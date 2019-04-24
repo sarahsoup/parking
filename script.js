@@ -1,6 +1,9 @@
 
 let obj = {};
 obj.loc = 'muse';
+obj.day = 'day-10';
+
+d3.select('#btn-14').classed('hidden',true);
 
 const boundaries = [
     {
@@ -24,8 +27,10 @@ scaleSpace.slot1 = d3.scaleLinear();
 scaleSpace.slot2 = d3.scaleLinear();
 scaleSpace.slot3 = d3.scaleLinear();
 const scaleDur = d3.scaleSequential(d3.interpolateGreys);
-const scaleVac = d3.scaleSequential(d3.interpolateRdPu);
-
+// const scaleVac = d3.scaleSequential(d3.interpolateRdPu);
+const hotMax = 30 * 60;
+const coolMax = '#1565C0';
+const scaleVac = d3.scaleLinear().domain([0,hotMax]).range(['#F44336',coolMax]).interpolate(d3.interpolateHcl);
 const scaleTimeSupp = d3.scaleTime();
 const scaleUtil = d3.scaleLinear().range(0,1);
 
@@ -55,18 +60,22 @@ Promise.all([
         values: [
             {
                 key: 'day-10',
+                vacancyDur: [],
                 values: muse10
             },
             {
                 key: 'day-11',
+                vacancyDur: [],
                 values: muse11
             },
             {
                 key: 'day-12',
+                vacancyDur: [],
                 values: muse12
             },
             {
                 key: 'day-13',
+                vacancyDur: [],
                 values: muse13
             }
         ]
@@ -77,22 +86,27 @@ Promise.all([
         values: [
             {
                 key: 'day-10',
+                vacancyDur: [],
                 values: idc10
             },
             {
                 key: 'day-11',
+                vacancyDur: [],
                 values: idc11
             },
             {
                 key: 'day-12',
+                vacancyDur: [],
                 values: idc12
             },
             {
                 key: 'day-13',
+                vacancyDur: [],
                 values: idc13
             },
             {
                 key: 'day-14',
+                vacancyDur: [],
                 values: idc14
             }
         ]
@@ -100,31 +114,37 @@ Promise.all([
 
     data.push({
         key: 'fac',
+        vacancyDur: [],
         values: [
             {
                 key: 'day-10',
+                vacancyDur: [],
                 values: fac10
             },
             {
                 key: 'day-11',
+                vacancyDur: [],
                 values: fac11
             },
             {
                 key: 'day-12',
+                vacancyDur: [],
                 values: fac12
             },
             {
                 key: 'day-13',
+                vacancyDur: [],
                 values: fac13
             },
             {
                 key: 'day-14',
+                vacancyDur: [],
                 values: fac14
             }
         ]
-    });
+    }); 
     
-    // in data, "vacancy" and "unused" are the same, eliminate variable or recalculate one
+    // in data, "vacant" and "unused" are the same, eliminate variable or recalculate one
     data.forEach(function(l){
         l.values.forEach(function(d){
             d.values.forEach(function(t,n){
@@ -137,7 +157,22 @@ Promise.all([
                         if(n == 0){
                             t[`dur_vacant_final_s${i}`] = 0;
                         }else{
-                            t[`dur_vacant_final_s${i}`] = d.values[n-1][`dur_vacant_s${i}`];
+                            const finalVacSec = d.values[n-1][`dur_vacant_s${i}`];
+                            t[`dur_vacant_final_s${i}`] = finalVacSec;
+                            if(finalVacSec != 0){
+                                d.vacancyDur.push(finalVacSec);
+
+                                // attribute final vacancy to previous time periods NEEDS TO BE RESOLVED
+                                let m = n-1;
+                                while(m >= 0 || (d.values[m][`dur_s${i}`] > 0 || d.values[m][`in_s${i}`] == 1 || d.values[m][`out_s${i}`] == 1) == false){
+                                    d.values[m][`dur_vacant_final_s${i}`] = finalVacSec;
+                                    m--;
+                                    if(m == -1){
+                                        break;
+                                    }
+                                }
+
+                            }
                         }
                     }else{
                         if(n == 0){
@@ -154,10 +189,10 @@ Promise.all([
         })
     })
 
-    console.log(data);
-    enterExitUpdate(data[0]);
-    generateStackedArea(data[0],'as');
-    generateStackedArea(data[0],'ws');
+    enterExitUpdate(data[0].values[0]);
+    generateStackedArea(data[0].values[0],'wp');
+    generateStackedArea(data[0].values[0],'as');
+    generateStackedArea(data[0].values[0],'ws');
 
 
     // btn functionality
@@ -169,12 +204,33 @@ Promise.all([
                 d3.select(this).classed('btn-active',true);
                 obj.loc = thisId.substr(4, thisId.length-1);
                 const index = data.map(d => d.key).indexOf(obj.loc);
-                enterExitUpdate(data[index]);
-                generateStackedArea(data[index],'as');
-                generateStackedArea(data[index],'ws');
-            
+                const day = data[index].values.map(d => d.key).indexOf(obj.day);
+                console.log(data[index].values[day]);
+                enterExitUpdate(data[index].values[day]);
+                generateStackedArea(data[index].values[day],'wp');
+                generateStackedArea(data[index].values[day],'as');
+                generateStackedArea(data[index].values[day],'ws');
+
+                d3.select('#btn-14').classed('hidden',(obj.loc == 'muse') ? true : false);
             }
         });
+
+    d3.selectAll('.btn-day')
+        .on('click',function(){
+            const thisId = d3.select(this).attr('id');
+            if(d3.select(this).classed('btn-active') == false){
+                d3.selectAll('.btn-day').classed('btn-active',false);
+                d3.select(this).classed('btn-active',true);
+                obj.day = `day-${thisId.substr(thisId.length-2,thisId.length)}`;
+                const index = data.map(d => d.key).indexOf(obj.loc);
+                const day = data[index].values.map(d => d.key).indexOf(obj.day);
+                enterExitUpdate(data[index].values[day]);
+                generateStackedArea(data[index].values[day],'wp');
+                generateStackedArea(data[index].values[day],'as');
+                generateStackedArea(data[index].values[day],'ws');
+            }
+        })
+
     d3.select('#btn-main')
         .on('click',mainView);
     d3.select('#btn-ws')
@@ -183,6 +239,17 @@ Promise.all([
         .on('click',abusedSystem);
     d3.select('#btn-hot')
         .on('click',spotHotness);
+
+    d3.selectAll('.btn-abuse')
+        .on('click',function(){
+            if(d3.select(this).classed('btn-abuse-active') == false){
+                d3.selectAll('.btn-abuse').classed('btn-abuse-active',false);
+                d3.select(this).classed('btn-abuse-active',true);
+
+                changeAbuse(d3.select(this).attr('id'));
+                updateLegend('as');
+            }
+        })
         
     
 })
@@ -292,52 +359,37 @@ function parse(row){
 
 function resize(){
     const w = d3.select('#parking-col').node().clientWidth;
-    obj.h = w * 0.25;
-    const y = d3.select('#parking-row').node().getBoundingClientRect().y;
+    obj.h = w/2;
 
     d3.select('#parking')
         .attr('width',w-30)
-        .attr('height',(obj.h*5));
+        .attr('height',obj.h);
 
     scaleTime.range([20,w-20-30]);
 
-    // const suppW = d3.select('#col-supp').node().clientWidth;
+    d3.select('#legend')
+        .attr('transform',`translate(${w-30},5)`);
 
-    // d3.select('#supp')
-    //     .attr('width',suppW)
-    //     .attr('height',(h*4));
-
-    // scaleUtil.range([h-80,20]);
-    // scaleTimeSupp.range([20,suppW-20-30]);
-
-    // d3.select('#supp').selectAll('.g-day')
-    //     .attr('transform',(d,i) => `translate(0,${i * h})`);
 }
 
 function enterExitUpdate(data){
     const slotCoord = boundaries.find(d => d.key == obj.loc).values;
     const slotH = Math.floor((obj.h-80)/(slotCoord.length*2));
-    scaleSpace.slot0.domain([slotCoord[0],slotCoord[1]]).range([60,60+slotH]);
-    scaleSpace.slot1.domain([slotCoord[1],slotCoord[2]]).range([60+slotH,60+(slotH*2)]);
-    scaleSpace.slot2.domain([slotCoord[2],slotCoord[3]]).range([60+(slotH*2),60+(slotH*3)]);
-    scaleSpace.slot3.domain([slotCoord[3],slotCoord[4]]).range([60+(slotH*3),60+(slotH*4)]);
-    scaleUtil.range([obj.h-60,100+(slotH*4)]);
+    const axisSpace = 100;
+    scaleSpace.slot0.domain([slotCoord[0],slotCoord[1]]).range([axisSpace,axisSpace+slotH]);
+    scaleSpace.slot1.domain([slotCoord[1],slotCoord[2]]).range([axisSpace+slotH,axisSpace+(slotH*2)]);
+    scaleSpace.slot2.domain([slotCoord[2],slotCoord[3]]).range([axisSpace+(slotH*2),axisSpace+(slotH*3)]);
+    scaleSpace.slot3.domain([slotCoord[3],slotCoord[4]]).range([axisSpace+(slotH*3),axisSpace+(slotH*4)]);
+    scaleUtil.range([obj.h-60,(axisSpace*2)+(slotH*4)]);
 
-    let durMax = 0,
-        vacMax = 0,
-        timeMin, timeMax;
-    data.values.forEach(function(day,i){
-        const durMaxDay = Math.max(d3.max(day.values, d => d.dur_s0),d3.max(day.values, d => +d.dur_s1),d3.max(day.values, d => +d.dur_s2),d3.max(day.values, d => +d.dur_s3));
-        const vacMaxDay = Math.max(d3.max(day.values, d => d.dur_vacant_s0),d3.max(day.values, d => +d.dur_vacant_s1),d3.max(day.values, d => +d.dur_vacant_s2),d3.max(day.values, d => +d.dur_vacant_s3));
-        const timeMinDay = d3.min(day.values, d => d.frametime_strd.getTime());
-        const timeMaxDay = d3.max(day.values, d => d.frametime_strd.getTime());
-        durMax = (durMaxDay > durMax) ? durMaxDay : durMax;
-        vacMax = (vacMaxDay > vacMax) ? vacMaxDay : vacMax;
-        timeMin = (i == 0) ? timeMinDay : (timeMinDay < timeMin) ? timeMinDay : timeMin;
-        timeMax = (i == 0) ? timeMaxDay : (timeMaxDay > timeMax) ? timeMaxDay : timeMax;
-    })
+    const durMax = Math.max(d3.max(data.values, d => d.dur_s0),d3.max(data.values, d => +d.dur_s1),d3.max(data.values, d => +d.dur_s2),d3.max(data.values, d => +d.dur_s3));
+    const vacMax = Math.max(d3.max(data.values, d => d.dur_vacant_s0),d3.max(data.values, d => +d.dur_vacant_s1),d3.max(data.values, d => +d.dur_vacant_s2),d3.max(data.values, d => +d.dur_vacant_s3));
+    const timeMin = d3.min(data.values, d => d.frametime_strd.getTime());
+    const timeMax = d3.max(data.values, d => d.frametime_strd.getTime());
+
     scaleDur.domain([0,durMax*2]);
-    scaleVac.domain([7200,-3600]);
+    // scaleVac.domain([7200,-3600]);
+    // scaleVac.domain([0,d3.max(data.vacancyDur)])
     obj.timeMin = new Date(timeMin);
     obj.timeMax = new Date(timeMax);
     scaleTime.domain([obj.timeMin,obj.timeMax]);
@@ -347,8 +399,9 @@ function enterExitUpdate(data){
         .tickFormat(d3.timeFormat('%I %p'));
 
     // join data
+    // originally written for multiple days, but currently runs for one day
     const days = d3.select('#parking').selectAll('.g-day')
-        .data(data.values);
+        .data([data]);
 
     // update existing g-elements
     days.each(function(e,index){
@@ -420,12 +473,12 @@ function enterExitUpdate(data){
             lineBefore.enter()
                 .append('line')
                 .attr('class',`line-violated hidden`)
+                .classed('violated-outside',(i == 0) ? true : false)
                 .merge(lineBefore)
                 .attr('x1', d => scaleTime(d.frametime_strd))
                 .attr('x2', d => scaleTime(d.frametime_strd))
                 .attr('y1', d => scaleY(d[`coord_start_s${i}`]))
-                .attr('y2', scaleY(slotCoord[i]))
-                .style('opacity', (i == 0) ? 0.5 : 1);
+                .attr('y2', scaleY(slotCoord[i]));
 
             const lineAfter = slot.select('.g-violated-after').selectAll('line')
                 .data(e.values.filter(d => d[`util_s${i}`] > 0 && d[`coord_end_s${i}`] > slotCoord[i+1]));
@@ -433,12 +486,12 @@ function enterExitUpdate(data){
             lineAfter.enter()
                 .append('line')
                 .attr('class',`line-violated hidden`)
+                .classed('violated-outside',(i+1 == 4) ? true : false)
                 .merge(lineAfter)
                 .attr('x1', d => scaleTime(d.frametime_strd))
                 .attr('x2', d => scaleTime(d.frametime_strd))
                 .attr('y1', scaleY(slotCoord[i+1]))
-                .attr('y2', d => scaleY(d[`coord_end_s${i}`]))
-                .style('opacity', (i+1 == 4) ? 0.5 : 1);
+                .attr('y2', d => scaleY(d[`coord_end_s${i}`]));
 
             lineBefore.exit().remove();
             lineAfter.exit().remove();
@@ -471,49 +524,31 @@ function enterExitUpdate(data){
             i++;
         }
 
-        day.selectAll('.line-business')
-            .attr('x1',d => scaleTime(d))
-            .attr('y1',scaleSpace.slot0(slotCoord[0]))
-            .attr('x2',d => scaleTime(d))
-            .attr('y2',scaleSpace.slot3(slotCoord[4]));
+        // day.selectAll('.line-business')
+        //     .attr('x1',d => scaleTime(d))
+        //     .attr('y1',scaleSpace.slot0(slotCoord[0]))
+        //     .attr('x2',d => scaleTime(d))
+        //     .attr('y2',scaleSpace.slot3(slotCoord[4]));
     })
 
     // append new g-elements
     days.enter().append('g')
         .attr('class','g-day')
         .attr('id',(d,i) => `g-day-${i}`)
-        .attr('transform',(d,i) => `translate(0,${i * obj.h})`)
+        .attr('transform',(d,i) => `translate(0,40)`)
         .each(function(e,index){
             const day = d3.select(this);
 
-            day.append('g')
-                .attr('class','g-label')
-                .attr('transform',`translate(0,20)`)
-                .append('text')
-                .text(e => `july ${e.values[0].frametime.getDate()}`);
+            // day.append('g')
+            //     .attr('class','g-label')
+            //     .attr('transform',`translate(0,20)`)
+            //     .append('text')
+            //     .text(e => `july ${e.values[0].frametime.getDate()}`);
 
             day.append('g')
                 .attr('class','g-axis')
                 .call(axisTime)
                 .attr('transform',`translate(0,${40})`);
-
-            day.append('g')
-                .attr('id','g-slot-boundaries')
-                .selectAll('line')
-                .data(slotCoord)
-                .enter()
-                .append('line')
-                .attr('class','line-boundary')
-                .attr('x1', scaleTime(timeMin))
-                .attr('x2', scaleTime(timeMax))
-                .attr('y1', (d,i) => {
-                    const scaleY = (i == 0) ? scaleSpace.slot0 : (i == 1) ? scaleSpace.slot1 : (i == 2) ? scaleSpace.slot2 : scaleSpace.slot3;
-                    return scaleY(d);
-                })
-                .attr('y2', (d,i) => {
-                    const scaleY = (i == 0) ? scaleSpace.slot0 : (i == 1) ? scaleSpace.slot1 : (i == 2) ? scaleSpace.slot2 : scaleSpace.slot3;
-                    return scaleY(d);
-                });
 
             let i = 0;
             while(i < 4){
@@ -546,7 +581,6 @@ function enterExitUpdate(data){
                     .attr('x2', d => scaleTime(d.frametime_strd))
                     .attr('y1',scaleY(slotCoord[i]))
                     .attr('y2',scaleY(slotCoord[i+1]));
-                    // .style('stroke',d => scaleVac(d[`dur_vacant_s${i}`]));
         
                 i++;
             }
@@ -590,11 +624,11 @@ function enterExitUpdate(data){
                     .enter()
                     .append('line')
                     .attr('class',`line-violated hidden`)
+                    .classed('violated-outside',(i == 0) ? true : false)
                     .attr('x1', d => scaleTime(d.frametime_strd))
                     .attr('x2', d => scaleTime(d.frametime_strd))
                     .attr('y1', d => scaleY(d[`coord_start_s${i}`]))
-                    .attr('y2', scaleY(slotCoord[i]))
-                    .style('opacity', (i == 0) ? 0.5 : 1);
+                    .attr('y2', scaleY(slotCoord[i]));
         
                 slot.append('g')
                     .attr('class','g-violated-after')
@@ -603,32 +637,62 @@ function enterExitUpdate(data){
                     .enter()
                     .append('line')
                     .attr('class',`line-violated hidden`)
+                    .classed('violated-outside',(i+1 == 4) ? true : false)
                     .attr('x1', d => scaleTime(d.frametime_strd))
                     .attr('x2', d => scaleTime(d.frametime_strd))
                     .attr('y1', scaleY(slotCoord[i+1]))
-                    .attr('y2', d => scaleY(d[`coord_end_s${i}`]))
-                    .style('opacity', (i+1 == 4) ? 0.5 : 1);
+                    .attr('y2', d => scaleY(d[`coord_end_s${i}`]));
 
                 i++;
             }
 
-            const busDayStart = new Date(2017,6,e.values[0].frametime_strd.getDate(),8);
-            const busDayEnd = new Date(2017,6,e.values[0].frametime_strd.getDate(),18);
+            // const busDayStart = new Date(2017,6,e.values[0].frametime_strd.getDate(),8);
+            // const busDayEnd = new Date(2017,6,e.values[0].frametime_strd.getDate(),18);
+
+            // day.append('g')
+            //     .attr('class','g-business hidden')
+            //     .selectAll('.line-business')
+            //     .data([busDayStart,busDayEnd])
+            //     .enter()
+            //     .append('line')
+            //     .attr('class','line-business')
+            //     .attr('x1',d => scaleTime(d))
+            //     .attr('y1',scaleSpace.slot0(slotCoord[0]))
+            //     .attr('x2',d => scaleTime(d))
+            //     .attr('y2',scaleSpace.slot3(slotCoord[4]));
 
             day.append('g')
-                .attr('class','g-business hidden')
-                .selectAll('.line-business')
-                .data([busDayStart,busDayEnd])
+                .attr('id','g-slot-boundaries')
+                .selectAll('line')
+                .data(slotCoord)
                 .enter()
                 .append('line')
-                .attr('class','line-business')
-                .attr('x1',d => scaleTime(d))
-                .attr('y1',scaleSpace.slot0(slotCoord[0]))
-                .attr('x2',d => scaleTime(d))
-                .attr('y2',scaleSpace.slot3(slotCoord[4]));
+                .attr('class','line-boundary')
+                .attr('x1', scaleTime(timeMin))
+                .attr('x2', scaleTime(timeMax))
+                .attr('y1', (d,i) => {
+                    const scaleY = (i == 0) ? scaleSpace.slot0 : (i == 1) ? scaleSpace.slot1 : (i == 2) ? scaleSpace.slot2 : scaleSpace.slot3;
+                    return scaleY(d);
+                })
+                .attr('y2', (d,i) => {
+                    const scaleY = (i == 0) ? scaleSpace.slot0 : (i == 1) ? scaleSpace.slot1 : (i == 2) ? scaleSpace.slot2 : scaleSpace.slot3;
+                    return scaleY(d);
+                });
 
-                
-    
+            day.select('#g-slot-boundaries')
+                .selectAll('.slot-label')
+                .data([1,2,3,4])
+                .enter()
+                .append('text')
+                .attr('class','slot-label')
+                .attr('dy','0.35em')
+                .attr('transform',(d,i) => {
+                    const scaleY = (i == 0) ? scaleSpace.slot0 : (i == 1) ? scaleSpace.slot1 : (i == 2) ? scaleSpace.slot2 : scaleSpace.slot3;
+                    const y = scaleY(slotCoord[d-1]+((slotCoord[d]-slotCoord[d-1])/2));
+                    return `translate(10,${y}) rotate(-90)`;
+                })
+                .text(d => `slot ${d}`);
+
         })
 
     // remove old g-elements
@@ -638,7 +702,7 @@ function enterExitUpdate(data){
 }
 
 function generateStackedArea(data,story){
-    const keys = (story == 'as') ? ['metered_total','unmetered_total','expired_total','expired_nb_total'/*,'unused_total'*/] : ['vacancy_total',/*'violated',*/'unused_inspot_total','util_total'];
+    const keys = (story == 'wp') ? ['util_total','unused_total'] : (story == 'as') ? ['metered_total','expired_total','unmetered_total','expired_nb_total'/*,'unused_total'*/] : ['util_total','unused_total'];
     const stack = d3.stack()
         .keys(keys);
 
@@ -649,23 +713,20 @@ function generateStackedArea(data,story){
         .y0(d => scaleUtil(d[0]))
         .y1(d => scaleUtil(d[1]));
     
-    if(story == 'as'){
-        console.log(stack(data.values[0].values));
+    if(story == 'wp'){
         const colorArea = d3.scaleOrdinal()
             .domain(keys)
-            .range(['#616161','#616161','#EF5350','#81D4FA'/*,'#FAFAFA'*/])
+            .range(['#616161',/*'#FAFAFA'*/'white']);
 
-        const system = d3.selectAll('.g-day').selectAll('.g-as')
+        const util = d3.selectAll('.g-day').selectAll('.g-wp')
             .data([data]);
 
-        system.enter().append('g')
-            .attr('class','g-as')
-            .merge(system)
+        util.enter().append('g')
+            .attr('class','g-wp')
+            .merge(util)
             .each(function(d){
-                const dayId = d3.select(this.parentNode).attr('id');
-                const i = dayId.charAt(dayId.length-1);
                 const stacks = d3.select(this).selectAll('.area')
-                    .data(stack(d.values[i].values));
+                    .data(stack(d.values));
 
                 stacks.enter()
                     .append('path')
@@ -686,6 +747,65 @@ function generateStackedArea(data,story){
                         .attr('x2',scaleTime(obj.timeMax))
                         .attr('y1',e => scaleUtil(e))
                         .attr('y2',e => scaleUtil(e));
+
+                    d3.select(this).selectAll('.quarter-label')
+                        .data([0.25,0.5,0.75])
+                        .enter()
+                        .append('text')
+                        .attr('class','quarter-label')
+                        .attr('dy','0.35em')
+                        .attr('transform',e => `translate(10,${scaleUtil(e)}) rotate(-90)`)
+                        .text(e => `${e*100}%`);
+                        
+                }
+
+                util.exit().remove();
+
+            });
+
+    }else if(story == 'as'){
+        const colorArea = d3.scaleOrdinal()
+            .domain(keys)
+            .range(['#616161','#FF5722','rgba(97,97,97,0.25)','rgba(97,97,97,0.25)'])
+
+        const system = d3.selectAll('.g-day').selectAll('.g-as')
+            .data([data]);
+
+        system.enter().append('g')
+            .attr('class','g-as')
+            .merge(system)
+            .each(function(d){
+                const stacks = d3.select(this).selectAll('.area')
+                    .data(stack(d.values));
+
+                stacks.enter()
+                    .append('path')
+                    .attr('class','area')
+                    .merge(stacks)
+                    .attr('d',area)
+                    .style('fill', e => colorArea(e.key));
+
+                stacks.exit().remove();
+
+                const lines = d3.select(this).selectAll('.quarter-line');
+                if(lines.size() == 0){
+                    lines.data([0.25,0.5,0.75])
+                        .enter()
+                        .append('line')
+                        .attr('class','quarter-line')
+                        .attr('x1',scaleTime(obj.timeMin))
+                        .attr('x2',scaleTime(obj.timeMax))
+                        .attr('y1',e => scaleUtil(e))
+                        .attr('y2',e => scaleUtil(e));
+
+                    d3.select(this).selectAll('.quarter-label')
+                        .data([0.25,0.5,0.75])
+                        .enter()
+                        .append('text')
+                        .attr('class','quarter-label')
+                        .attr('dy','0.35em')
+                        .attr('transform',e => `translate(10,${scaleUtil(e)}) rotate(-90)`)
+                        .text(e => `${e*100}%`);
                 }
             });
 
@@ -696,7 +816,7 @@ function generateStackedArea(data,story){
     }else if(story == 'ws'){
         const colorArea = d3.scaleOrdinal()
             .domain(keys)
-            .range(['#616161','#FFC107','#FAFAFA'])
+            .range([/*'#FAFAFA'*/'white','#00BCD4'])
 
         const ws = d3.selectAll('.g-day').selectAll('.g-ws')
             .data([data]);
@@ -705,10 +825,8 @@ function generateStackedArea(data,story){
             .attr('class','g-ws')
             .merge(ws)
             .each(function(d){
-                const dayId = d3.select(this.parentNode).attr('id');
-                const i = dayId.charAt(dayId.length-1);
                 const stacks = d3.select(this).selectAll('.area')
-                    .data(stack(d.values[i].values));
+                    .data(stack(d.values));
 
                 stacks.enter()
                     .append('path')
@@ -729,6 +847,15 @@ function generateStackedArea(data,story){
                         .attr('x2',scaleTime(obj.timeMax))
                         .attr('y1',e => scaleUtil(e))
                         .attr('y2',e => scaleUtil(e));
+
+                    d3.select(this).selectAll('.quarter-label')
+                        .data([0.25,0.5,0.75])
+                        .enter()
+                        .append('text')
+                        .attr('class','quarter-label')
+                        .attr('dy','0.35em')
+                        .attr('transform',e => `translate(10,${scaleUtil(e)}) rotate(-90)`)
+                        .text(e => `${(1-e)*100}%`);
                 }
             });
 
@@ -756,70 +883,83 @@ function generateScatterplots(data){
 function mainView(){
     d3.selectAll('.btn-story').classed('btn-active',false);
     d3.select('#btn-main').classed('btn-active',true);
+    d3.selectAll('.btn-abuse').classed('hidden',true);
+
+    updateLegend('wp');
+
+    d3.selectAll('.line-boundary').classed('hidden',false);
 
     d3.select('#parking').selectAll('.line-unused').classed('hidden',true);
     d3.select('#parking').selectAll('.line-violated').classed('hidden',true);
     d3.select('#parking').selectAll('.expired').classed('expired',false);
     d3.select('#parking').selectAll('.non-business').classed('non-business',false);
     d3.select('#parking').selectAll('.line-vacant').classed('hidden',true);
-    d3.select('#parking').selectAll('.line-util').style('stroke', null);
+    d3.select('#parking').selectAll('.line-util').style('stroke', null).style('stroke-width',null);
 
     d3.selectAll('.g-as').classed('hidden',true);
     d3.selectAll('.g-ws').classed('hidden',true);
     d3.selectAll('.g-business').classed('hidden',true);
+
+    d3.selectAll('.g-wp').classed('hidden',false);
+
+    uniformLineLength('off');
 }
 
 function wastedSpace(){
     d3.selectAll('.btn-story').classed('btn-active',false);
     d3.select('#btn-ws').classed('btn-active',true);
+    d3.selectAll('.btn-abuse').classed('hidden',true);
+
+    updateLegend('ws');
 
     d3.select('#parking').selectAll('.expired').classed('expired',false);
     d3.select('#parking').selectAll('.non-business').classed('non-business',false);
+    d3.select('#parking').selectAll('.g-business').classed('hidden',true);
 
     d3.select('#parking').selectAll('.line-unused').classed('hidden',false);
-    d3.select('#parking').selectAll('.line-violated').classed('hidden',false);
+    d3.select('#parking').selectAll('.line-violated').classed('hidden',true);
 
-    d3.select('#parking').selectAll('.line-util').style('stroke', '#FAFAFA');
+    d3.selectAll('.line-boundary').classed('hidden',false);
+
+    d3.select('#parking').selectAll('.line-util').style('stroke', 'white').style('stroke-width','1.5px');
     d3.select('#parking').selectAll('.line-vacant').classed('hidden',false);
 
+    d3.selectAll('.g-wp').classed('hidden',true);
     d3.selectAll('.g-as').classed('hidden',true);
 
     d3.selectAll('.g-ws').classed('hidden',false);
 
-    d3.selectAll('.g-business').classed('hidden',true);
+    uniformLineLength('off');
 }
 
 function abusedSystem(){
     d3.selectAll('.btn-story').classed('btn-active',false);
     d3.select('#btn-as').classed('btn-active',true);
 
+    d3.selectAll('.btn-abuse').classed('hidden',false);
+
+    updateLegend('as');
+
     d3.select('#parking').selectAll('.line-unused').classed('hidden',true);
-    d3.select('#parking').selectAll('.line-violated').classed('hidden',true);
-    d3.select('#parking').selectAll('.line-util').style('stroke', null);
+    d3.select('#parking').selectAll('.line-util').style('stroke', null).style('stroke-width',null);
     d3.select('#parking').selectAll('.line-vacant').classed('hidden',true);
+    d3.selectAll('.g-wp').classed('hidden',true);
     d3.selectAll('.g-ws').classed('hidden',true);
 
-    d3.select('#parking').selectAll('.g-day')
-        .each(function(e){
-            let i=0;
-            while(i < 4){
-                d3.select(this)
-                    .select(`#g-slot${i}-util`)
-                    .selectAll('.line-util')
-                    .classed('expired', d => (d[`expired_s${i}`] == 1) ? true : false)
-                    .classed('non-business', d => (d.business_hrs == 0 && d[`expired_s${i}`] == 1) ? true : false);
-        
-                i++;
-            }
-        })
+    uniformLineLength('off');
 
-    d3.selectAll('.g-as').classed('hidden',false);
-    d3.selectAll('.g-business').classed('hidden',false);
+    changeAbuse(d3.select('.btn-abuse-active').attr('id'));
+
+    d3.selectAll('.g-business').classed('hidden',true);
+    d3.selectAll('.line-boundary').classed('hidden',false);
 }
 
 function spotHotness(){
     d3.selectAll('.btn-story').classed('btn-active',false);
     d3.select('#btn-hot').classed('btn-active',true);
+    d3.selectAll('.btn-abuse').classed('hidden',true);
+
+    updateLegend('sh');
 
     d3.select('#parking').selectAll('.line-unused').classed('hidden',true);
     d3.select('#parking').selectAll('.line-violated').classed('hidden',true);
@@ -829,21 +969,149 @@ function spotHotness(){
     d3.selectAll('.g-as').classed('hidden',true);
 
     d3.select('#parking').selectAll('.line-vacant').classed('hidden',false);
+    d3.selectAll('.g-wp').classed('hidden',true);
     d3.selectAll('.g-ws').classed('hidden',true);
     d3.selectAll('.g-business').classed('hidden',true);
+    d3.selectAll('.line-boundary').classed('hidden',true);
 
-    d3.select('#parking').selectAll('.g-day')
-        .each(function(e){
-            let i = 0;
-            while(i < 4){
-                d3.select(this)
-                    .select(`#g-slot${i}-util`)
-                    .selectAll('.line-util')
-                    .style('stroke', d => (d[`in_s${i}`] == 1) ? '#009688' : scaleDur(d[`dur_s${i}`]))
-                    .sort((a,b) => (a[`in_s${i}`] == 1) ? 1 : -1);
-        
-                i++;
-            }
-        })
+    uniformLineLength('on');
 
+}
+
+function updateLegend(story){
+    if(story == 'sh'){
+        d3.select('#legend-gradient')
+            .classed('hidden',false)
+            .attr('transform','translate(-220,5)');
+        d3.selectAll('.legend-category')
+            .each(function(d,i){
+                d3.select(this).classed('hidden',(i == 0) ? false : true);
+                if(i == 0){
+                    d3.select(this)
+                        .attr('transform','translate(-80,5)')
+                        .select('.color')
+                        .style('fill','#616161')
+                        .classed('util-hotness',true);
+                    d3.select(this).select('text')
+                        .text('utilized');
+                }
+            })
+    }else{
+        d3.select('#legend-gradient').classed('hidden',true);
+
+        if(story == 'wp'){
+            d3.selectAll('.legend-category')
+                .each(function(d,i){
+                    d3.select(this).classed('hidden',(i == 0) ? false : true);
+                    if(i == 0){
+                        d3.select(this)
+                            .attr('transform','translate(-80,5)')
+                            .select('.color')
+                            .style('fill','#616161')
+                            .classed('util-hotness',false);
+                        d3.select(this).select('text')
+                            .text('utilized');
+                    }
+                })
+        }else if(story == 'ws'){
+            d3.selectAll('.legend-category')
+                .each(function(d,i){
+                    d3.select(this).classed('hidden',(i == 0) ? false : true);
+                    if(i == 0){
+                        d3.select(this)
+                            .attr('transform','translate(-80,5)')
+                            .select('.color')
+                            .style('fill','#00BCD4')
+                            .classed('util-hotness',false);
+                        d3.select(this).select('text')
+                            .text('unused');
+                    }
+                })
+        }else if(story == 'as'){
+
+            const label = (d3.select('.btn-abuse-active').attr('id') == 'btn-expired') ? 'expired meter' : 'violated space';
+
+            d3.selectAll('.legend-category').classed('hidden',false)
+                .attr('transform',(d,i) => `translate(${-(i * 120) - 80},5)`);
+
+            d3.selectAll('.legend-category')
+                .each(function(d,i){
+                    d3.select(this).select('.color')
+                        .classed('util-hotness',false)
+                        .style('fill',(i == 0) ? '#616161' : '#FF5722');
+
+                    d3.select(this).select('text')
+                        .text((i == 0) ? 'utilized' : label);
+                })
+
+        }
+    }
+}
+
+function changeAbuse(abuse){
+    if(abuse == 'btn-expired'){
+        d3.selectAll('.g-as').classed('hidden',false);
+        d3.select('#parking').selectAll('.line-violated').classed('hidden',true);
+
+        d3.select('#parking').selectAll('.g-day')
+            .each(function(e){
+                let i=0;
+                while(i < 4){
+                    d3.select(this)
+                        .select(`#g-slot${i}-util`)
+                        .selectAll('.line-util')
+                        .classed('expired', d => (d.business_hrs == 1 && d[`expired_s${i}`] == 1) ? true : false)
+                        .classed('non-business', d => (d.business_hrs == 0) ? true : false) 
+            
+                    i++;
+                }
+            })
+    }else{
+        d3.selectAll('.g-as').classed('hidden',true);
+        d3.select('#parking').selectAll('.line-violated').classed('hidden',false);
+
+        // switch to violated
+        d3.select('#parking').selectAll('.g-day').selectAll('.line-util')
+            .classed('expired', false)
+            .classed('non-business',false); 
+    }
+}
+
+function uniformLineLength(toggle){
+    const slotCoord = boundaries.find(d => d.key == obj.loc).values;
+    if(toggle == 'on'){
+        let i = 0;
+        while(i < 4){
+            const scaleY = (i == 0) ? scaleSpace.slot0 : (i == 1) ? scaleSpace.slot1 : (i == 2) ? scaleSpace.slot2 : scaleSpace.slot3;
+            const slotCenter = slotCoord[i] + (slotCoord[i+1]-slotCoord[i])/2;
+            d3.select(`#g-slot${i}-unused`).selectAll('.line-vacant')
+                .attr('y1',scaleY(slotCenter)-5)
+                .attr('y2',scaleY(slotCenter)+5)
+                .style('stroke', d => (d[`dur_vacant_s${i}`] > hotMax) ? coolMax : scaleVac(d[`dur_vacant_s${i}`]));
+
+            d3.select(`#g-slot${i}-util`).selectAll('.line-util')
+                .style('stroke',null)
+                .style('stroke-width',null)
+                .classed('util-hotness',true)
+                .attr('y1',scaleY(slotCenter)-5)
+                .attr('y2',scaleY(slotCenter)+5);
+            i++;
+        }
+    }else{
+        let i = 0;
+        while(i < 4){
+            const scaleY = (i == 0) ? scaleSpace.slot0 : (i == 1) ? scaleSpace.slot1 : (i == 2) ? scaleSpace.slot2 : scaleSpace.slot3;
+            d3.select(`#g-slot${i}-unused`).selectAll('.line-vacant')
+                .style('stroke',null)
+                .attr('y1',scaleY(slotCoord[i]))
+                .attr('y2',scaleY(slotCoord[i+1]));
+
+            d3.select(`#g-slot${i}-util`).selectAll('.line-util')
+                .classed('util-hotness',false)
+                .attr('y1', d => scaleY(d[`coord_start_s${i}`]))
+                .attr('y2', d => scaleY(d[`coord_end_s${i}`]));
+
+            i++;
+        }
+    }
 }

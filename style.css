@@ -1,16 +1,19 @@
 
-#btn-row-1, #btn-row-2 {
+#btn-row-1, #btn-row-2,#btn-row-3 {
     margin-top: 20px;
     margin-bottom: 20px;
+    font-size: 10pt;
+    font-weight: 600;
 }
 
-.btn-loc, .btn-story {
+.btn-loc, .btn-day, .btn-story {
     cursor: pointer;
     background-color: white;
     border: 1px solid black;
+    font-weight: 600;
 }
 
-.btn-loc:focus, .btn-story:focus {
+.btn-loc:focus, .btn-day:focus, .btn-story:focus, .btn-abuse:focus {
     outline: none !important;
 }
 
@@ -19,8 +22,56 @@
     color: white !important;
 }
 
+.spacer {
+    display: inline-block;
+    width: 40px;
+}
+
+.btn-abuse {
+    cursor: pointer;
+    background-color: white;
+    border: 1px solid #FF5722;
+    color: #FF5722;
+    font-weight: 600;
+}
+
+.btn-abuse-active {
+    background-color: #FF5722 !important;
+    color: white !important;
+}
+
+.hidden {
+    display: none;
+}
+
+.slot-label, .quarter-label {
+    text-anchor: middle;
+    text-transform: uppercase;
+    font-size: 8pt;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+}
+
 .g-axis .domain {
     opacity: 0;
+}
+
+.g-axis text {
+    font-weight: 600;
+    letter-spacing: 0.05em;
+}
+
+.legend-text {
+    font-size: 10pt;
+}
+
+#gradient-startLabel, #gradient-endLabel {
+    text-anchor: middle;
+    font-size: 10px;
+}
+
+.color {
+    fill: white;
 }
 
 .line-util {
@@ -30,7 +81,11 @@
 }
 
 .line-violated, .expired {
-    stroke: #EF5350;
+    stroke: #FF5722;
+}
+
+.violated-outside {
+    /* stroke: #FF8A65; */
 }
 
 .line-boundary {
@@ -43,19 +98,14 @@
     display: none;
 }
 
-.line-unused {
+.line-unused,.line-vacant {
     stroke-width: 1px;
-    stroke: #FFC107;
+    stroke: #00BCD4;
 }
 
-.line-vacant {
-    stroke-width: 1px;
-    stroke: #616161;
-}
-
-.non-business {
-    stroke: #81D4FA;
-    /* opacity: 0.4; */
+.non-business, .util-hotness, .secondary {
+    /* stroke: #81D4FA; */
+    opacity: 0.25;
 }
 
 .quarter-line {

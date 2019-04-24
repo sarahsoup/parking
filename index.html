@@ -25,37 +25,53 @@
             </div>
             <div class="row" id="btn-row-2">
                 <div class="col-sm-12">
+                    <button class="btn-day btn-active" id="btn-10">july 10</button>
+                    <button class="btn-day" id="btn-11">july 11</button>
+                    <button class="btn-day" id="btn-12">july 12</button>
+                    <button class="btn-day" id="btn-13">july 13</button>
+                    <button class="btn-day" id="btn-14">july 14</button>
+                </div>
+            </div>
+            <div class="row" id="btn-row-3">
+                <div class="col-sm-12">
                     <button class="btn-story btn-active" id="btn-main">whole picture</button>
                     <button class="btn-story" id="btn-ws">wasted space</button>
                     <button class="btn-story" id="btn-as">abused system</button>
                     <button class="btn-story" id="btn-hot">spot hotness</button>
+                    <div class="spacer"></div>
+                    <button class="btn-abuse btn-abuse-active hidden" id="btn-expired">expired time</button>
+                    <button class="btn-abuse hidden" id="btn-violated">violated space</button>
                 </div>
             </div>
             <div class="row" id="parking-row">
                 <div class="col-sm-12" id="parking-col">
-                    <svg id="parking"></svg>
+                    <svg id="parking">
+                        <defs>
+                            <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" style="stop-color:#F44336;" />
+                                <stop offset="50%" style="stop-color:rgb(182, 67, 178);"></stop>
+                                <stop offset="100%" style="stop-color:#1565C0;" />
+                            </linearGradient>
+                        </defs>
+                        <g id="legend">
+                            <g id="legend-gradient">
+                                <rect id="gradient" width="40" height="10" y="5" x="0" fill="url(#grad)"></rect>
+                                <text class="legend-text gradient-text" id="gradient-label" y="10" dy="0.35em" x="45">time vacant</text>
+                                <text class="legend-text gradient-text" id="gradient-startLabel" y="12" dy="1.65em" x="0">0m</text>
+                                <text class="legend-text gradient-text" id="gradient-endLabel" y="12" dy="1.65em" x="40">30m</text>
+                            </g>
+                            <g class="legend-category">
+                                <rect class="color" width="10" height="10" y="5" x="0"></rect>
+                                <text class="legend-text" y="10" dy="0.35em" x="15"></text>
+                            </g>
+                            <g class="legend-category">
+                                <rect class="color" width="10" height="10" y="5" x="0"></rect>
+                                <text class="legend-text" y="10" dy="0.35em" x="15"></text>
+                            </g>
+                        </g>
+                    </svg>
                 </div>
             </div>
-            <!-- <div class="row" id="parking-row-1">
-                <div class="col-sm-12" id="parking-col-1">
-                    <svg class="parking" id="parking-1"></svg>
-                </div>
-            </div>
-            <div class="row" id="parking-row-2">
-                <div class="col-sm-12" id="parking-col-2">
-                    <svg class="parking" id="parking-2"></svg>
-                </div>
-            </div>
-            <div class="row" id="parking-row-3">
-                <div class="col-sm-12" id="parking-col-3">
-                    <svg class="parking" id="parking-3"></svg>
-                </div>
-            </div>
-            <div class="row" id="parking-row-4">
-                <div class="col-sm-12" id="parking-col-4">
-                    <svg class="parking" id="parking-4"></svg>
-                </div>
-            </div> -->
         </div>
 
 
