@@ -146,11 +146,27 @@ Promise.all([
     
     // in data, "vacant" and "unused" are the same, eliminate variable or recalculate one
     data.forEach(function(l){
+        const slotCoord = boundaries.find(d => d.key == l.key).values;
+        const coordDist = slotCoord[4]-slotCoord[0];
         l.values.forEach(function(d){
             d.values.forEach(function(t,n){
                 // for each slot...
+                let violDistTotal = 0;
                 let i=0;
                 while(i < 4){
+                    // violated space (as part of util)
+                    if(i != 0 && t[`util_s${i}`] > 0 && t[`coord_start_s${i}`] < slotCoord[i]){
+                        // violated space before
+                        const violDist = slotCoord[i] - t[`coord_start_s${i}`];
+                        violDistTotal += violDist;
+                    }
+                    if(i != 3 && t[`util_s${i}`] > 0 && t[`coord_end_s${i}`] > slotCoord[i+1]){
+                        // violated space after
+                        const violDist = t[`coord_end_s${i}`] - slotCoord[i+1];
+                        violDistTotal += violDist;
+                    }
+
+                    // vacancy / unused time
                     if(t[`dur_s${i}`] > 0 || t[`in_s${i}`] == 1 || t[`out_s${i}`] == 1){
                         t[`dur_unused_s${i}`] = 0;
                         t[`dur_vacant_s${i}`] = 0;
@@ -185,13 +201,21 @@ Promise.all([
                     }
                     i++;
                 }
+                const violPerc = violDistTotal/coordDist;
+                t.util_minus_viol = t.util_total - violPerc;
+                t.util_viol = violPerc;
+
+                // if(l.key == 'muse' && d.key == 'day-10' && (t.frame < 50 || (t.frame > 1420 && t.frame <1500))){
+                //     console.log(t.frame, t.util_total,t.util_viol);
+                // }
             })
         })
     })
 
     enterExitUpdate(data[0].values[0]);
     generateStackedArea(data[0].values[0],'wp');
-    generateStackedArea(data[0].values[0],'as');
+    generateStackedArea(data[0].values[0],'as-exp');
+    generateStackedArea(data[0].values[0],'as-viol');
     generateStackedArea(data[0].values[0],'ws');
 
 
@@ -205,10 +229,10 @@ Promise.all([
                 obj.loc = thisId.substr(4, thisId.length-1);
                 const index = data.map(d => d.key).indexOf(obj.loc);
                 const day = data[index].values.map(d => d.key).indexOf(obj.day);
-                console.log(data[index].values[day]);
                 enterExitUpdate(data[index].values[day]);
                 generateStackedArea(data[index].values[day],'wp');
-                generateStackedArea(data[index].values[day],'as');
+                generateStackedArea(data[index].values[day],'as-exp');
+                generateStackedArea(data[index].values[day],'as-viol');
                 generateStackedArea(data[index].values[day],'ws');
 
                 d3.select('#btn-14').classed('hidden',(obj.loc == 'muse') ? true : false);
@@ -226,7 +250,8 @@ Promise.all([
                 const day = data[index].values.map(d => d.key).indexOf(obj.day);
                 enterExitUpdate(data[index].values[day]);
                 generateStackedArea(data[index].values[day],'wp');
-                generateStackedArea(data[index].values[day],'as');
+                generateStackedArea(data[index].values[day],'as-exp');
+                generateStackedArea(data[index].values[day],'as-viol');
                 generateStackedArea(data[index].values[day],'ws');
             }
         })
@@ -702,7 +727,7 @@ function enterExitUpdate(data){
 }
 
 function generateStackedArea(data,story){
-    const keys = (story == 'wp') ? ['util_total','unused_total'] : (story == 'as') ? ['metered_total','expired_total','unmetered_total','expired_nb_total'/*,'unused_total'*/] : ['util_total','unused_total'];
+    const keys = (story == 'wp') ? ['util_total','unused_total'] : (story == 'as-exp') ? ['metered_total','expired_total','unmetered_total','expired_nb_total'] : (story == 'as-viol') ? ['util_minus_viol','util_viol'] : ['util_total','unused_total'];
     const stack = d3.stack()
         .keys(keys);
 
@@ -763,16 +788,17 @@ function generateStackedArea(data,story){
 
             });
 
-    }else if(story == 'as'){
-        const colorArea = d3.scaleOrdinal()
+    }else if(story == 'as-exp'){
+        console.log('abused system: expired time stacked area chart created');
+        let colorArea = d3.scaleOrdinal()
             .domain(keys)
             .range(['#616161','#FF5722','rgba(97,97,97,0.25)','rgba(97,97,97,0.25)'])
 
-        const system = d3.selectAll('.g-day').selectAll('.g-as')
+        const system = d3.selectAll('.g-day').selectAll('.g-as-exp')
             .data([data]);
 
         system.enter().append('g')
-            .attr('class','g-as')
+            .attr('class','g-as g-as-exp')
             .merge(system)
             .each(function(d){
                 const stacks = d3.select(this).selectAll('.area')
@@ -810,7 +836,56 @@ function generateStackedArea(data,story){
             });
 
         system.exit().remove();
-            
+
+    }else if(story == 'as-viol'){
+        console.log('abused system: violated space stacked area chart created');
+        const colorArea = d3.scaleOrdinal()
+            .domain(keys)
+            .range(['#616161','#FF5722']);
+
+        const violated = d3.selectAll('.g-day').selectAll('.g-as-viol')
+            .data([data]);
+
+        violated.enter().append('g')
+            .attr('class','g-as g-as-viol')
+            .merge(violated)
+            .each(function(d){
+                const stacks = d3.select(this).selectAll('.area')
+                    .data(stack(d.values));
+
+                stacks.enter()
+                    .append('path')
+                    .attr('class','area')
+                    .merge(stacks)
+                    .attr('d',area)
+                    .style('fill', e => colorArea(e.key));
+
+                stacks.exit().remove();
+
+                const lines = d3.select(this).selectAll('.quarter-line');
+                if(lines.size() == 0){
+                    lines.data([0.25,0.5,0.75])
+                        .enter()
+                        .append('line')
+                        .attr('class','quarter-line')
+                        .attr('x1',scaleTime(obj.timeMin))
+                        .attr('x2',scaleTime(obj.timeMax))
+                        .attr('y1',e => scaleUtil(e))
+                        .attr('y2',e => scaleUtil(e));
+
+                    d3.select(this).selectAll('.quarter-label')
+                        .data([0.25,0.5,0.75])
+                        .enter()
+                        .append('text')
+                        .attr('class','quarter-label')
+                        .attr('dy','0.35em')
+                        .attr('transform',e => `translate(10,${scaleUtil(e)}) rotate(-90)`)
+                        .text(e => `${e*100}%`);
+                }
+            });
+
+            violated.exit().remove();
+
         d3.selectAll('.g-as').classed('hidden',true);
 
     }else if(story == 'ws'){
@@ -1050,7 +1125,8 @@ function updateLegend(story){
 
 function changeAbuse(abuse){
     if(abuse == 'btn-expired'){
-        d3.selectAll('.g-as').classed('hidden',false);
+        d3.select('.g-as-viol').classed('hidden',true);
+        d3.selectAll('.g-as-exp').classed('hidden',false);
         d3.select('#parking').selectAll('.line-violated').classed('hidden',true);
 
         d3.select('#parking').selectAll('.g-day')
@@ -1067,7 +1143,8 @@ function changeAbuse(abuse){
                 }
             })
     }else{
-        d3.selectAll('.g-as').classed('hidden',true);
+        d3.selectAll('.g-as-exp').classed('hidden',true);
+        d3.select('.g-as-viol').classed('hidden',false);
         d3.select('#parking').selectAll('.line-violated').classed('hidden',false);
 
         // switch to violated
