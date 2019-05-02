@@ -74,6 +74,18 @@
     fill: white;
 }
 
+.dot-in {
+    fill: #616161;
+    stroke-width: 1px;
+    stroke: #616161;
+}
+
+.dot-out {
+    fill: none;
+    stroke-width: 1px;
+    stroke: #616161;
+}
+
 .line-util {
     stroke-width: 1px;
     /* stroke:	#BDBDBD; */

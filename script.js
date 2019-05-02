@@ -212,6 +212,8 @@ Promise.all([
         })
     })
 
+    console.log(data[0].values[0]);
+
     enterExitUpdate(data[0].values[0]);
     generateStackedArea(data[0].values[0],'wp');
     generateStackedArea(data[0].values[0],'as-exp');
@@ -345,6 +347,10 @@ function parse(row){
         in_s1: +row.in_slot_1,
         in_s2: +row.in_slot_2,
         in_s3: +row.in_slot_3,
+        out_s0: +row.out_slot_0,
+        out_s1: +row.out_slot_1,
+        out_s2: +row.out_slot_2,
+        out_s3: +row.out_slot_3,
         util_s0: utilS0,
         util_s1: utilS1,
         util_s2: utilS2,
@@ -384,7 +390,7 @@ function parse(row){
 
 function resize(){
     const w = d3.select('#parking-col').node().clientWidth;
-    obj.h = w/2;
+    obj.h = Math.floor((2*w)/3);
 
     d3.select('#parking')
         .attr('width',w-30)
@@ -399,13 +405,14 @@ function resize(){
 
 function enterExitUpdate(data){
     const slotCoord = boundaries.find(d => d.key == obj.loc).values;
-    const slotH = Math.floor((obj.h-80)/(slotCoord.length*2));
-    const axisSpace = 100;
-    scaleSpace.slot0.domain([slotCoord[0],slotCoord[1]]).range([axisSpace,axisSpace+slotH]);
-    scaleSpace.slot1.domain([slotCoord[1],slotCoord[2]]).range([axisSpace+slotH,axisSpace+(slotH*2)]);
-    scaleSpace.slot2.domain([slotCoord[2],slotCoord[3]]).range([axisSpace+(slotH*2),axisSpace+(slotH*3)]);
-    scaleSpace.slot3.domain([slotCoord[3],slotCoord[4]]).range([axisSpace+(slotH*3),axisSpace+(slotH*4)]);
-    scaleUtil.range([obj.h-60,(axisSpace*2)+(slotH*4)]);
+    const axisSpace = 60;
+    const paddingBottom = 30;
+    const slotH = Math.floor((obj.h-axisSpace-paddingBottom)/(slotCoord.length*2));
+    scaleSpace.slot0.domain([slotCoord[0],slotCoord[1]]).range([axisSpace+slotH,axisSpace+(slotH*2)]);
+    scaleSpace.slot1.domain([slotCoord[1],slotCoord[2]]).range([axisSpace+(slotH*2),axisSpace+(slotH*3)]);
+    scaleSpace.slot2.domain([slotCoord[2],slotCoord[3]]).range([axisSpace+(slotH*3),axisSpace+(slotH*4)]);
+    scaleSpace.slot3.domain([slotCoord[3],slotCoord[4]]).range([axisSpace+(slotH*4),axisSpace+(slotH*5)]);
+    scaleUtil.range([obj.h-paddingBottom,axisSpace+(slotH*6)]);
 
     const durMax = Math.max(d3.max(data.values, d => d.dur_s0),d3.max(data.values, d => +d.dur_s1),d3.max(data.values, d => +d.dur_s2),d3.max(data.values, d => +d.dur_s3));
     const vacMax = Math.max(d3.max(data.values, d => d.dur_vacant_s0),d3.max(data.values, d => +d.dur_vacant_s1),d3.max(data.values, d => +d.dur_vacant_s2),d3.max(data.values, d => +d.dur_vacant_s3));
@@ -450,6 +457,39 @@ function enterExitUpdate(data){
 
         let i = 0;
         while(i < 4){
+            // join data
+            const dotsIn = d3.select(`.g-dots-in-s${i}`).selectAll('circle')
+                .data(e.values.filter(d => d[`in_s${i}`] == 1));
+
+            const dotsOut = d3.select(`.g-dots-out-s${i}`).selectAll('circle')
+                .data(e.values.filter(d => d[`out_s${i}`] == 1));
+
+            // add new dots and update
+            dotsIn.enter()
+                .append('circle')
+                .attr('class',`dot-in dot-in-s${i}`)
+                .merge(dotsIn)
+                .attr('cx', d => scaleTime(d.frametime_strd))
+                .attr('cy', (i*7))
+                .attr('r', 3);
+
+            dotsOut.enter()
+                .append('circle')
+                .attr('class',`dot-out dot-out-s${i}`)
+                .merge(dotsOut)
+                .attr('cx', d => scaleTime(d.frametime_strd))
+                .attr('cy', (i*7))
+                .attr('r', 3);
+
+            // remove old dots
+            dotsIn.exit().remove();
+            dotsOut.exit().remove();
+
+            i++;
+        }
+
+        i = 0;
+        while(i < 4){
             const slot = day.select(`#g-slot${i}-unused`);
             const scaleY = (i == 0) ? scaleSpace.slot0 : (i == 1) ? scaleSpace.slot1 : (i == 2) ? scaleSpace.slot2 : scaleSpace.slot3;
 
@@ -478,7 +518,6 @@ function enterExitUpdate(data){
                 .attr('x2', d => scaleTime(d.frametime_strd))
                 .attr('y1',scaleY(slotCoord[i]))
                 .attr('y2',scaleY(slotCoord[i+1]));
-                // .style('stroke',d => scaleVac(d[`dur_vacant_s${i}`]));
 
             // remove old lines
             lineUnused.exit().remove();
@@ -564,18 +603,43 @@ function enterExitUpdate(data){
         .each(function(e,index){
             const day = d3.select(this);
 
-            // day.append('g')
-            //     .attr('class','g-label')
-            //     .attr('transform',`translate(0,20)`)
-            //     .append('text')
-            //     .text(e => `july ${e.values[0].frametime.getDate()}`);
-
             day.append('g')
                 .attr('class','g-axis')
                 .call(axisTime)
                 .attr('transform',`translate(0,${40})`);
 
+            const dotsIn = day.append('g')
+                .attr('class','g-dots-in')
+                .attr('transform',`translate(0,${60})`);
+
+            const dotsOut = day.append('g')
+                .attr('class','g-dots-out')
+                .attr('transform',`translate(0,${60})`);
+
             let i = 0;
+            while(i < 4){
+                dotsIn.append('g').attr('class',`g-dots-in-s${i}`).selectAll(`.dot-in-s${i}`)
+                    .data(e.values.filter(d => d[`in_s${i}`] == 1))
+                    .enter()
+                    .append('circle')
+                    .attr('class',`dot-in dot-in-s${i}`)
+                    .attr('cx', d => scaleTime(d.frametime_strd))
+                    .attr('cy', i*7)
+                    .attr('r', 3);
+
+                dotsOut.append('g').attr('class',`g-dots-out-s${i}`).selectAll(`.dot-out-s${i}`)
+                    .data(e.values.filter(d => d[`out_s${i}`] == 1))
+                    .enter()
+                    .append('circle')
+                    .attr('class',`dot-out dot-out-s${i}`)
+                    .attr('cx', d => scaleTime(d.frametime_strd))
+                    .attr('cy', i*7)
+                    .attr('r', 3);
+
+                    i++;
+            }
+
+            i = 0;
             while(i < 4){
                 const slot = day.append('g')
                     .attr('class','g-slot')
@@ -789,7 +853,6 @@ function generateStackedArea(data,story){
             });
 
     }else if(story == 'as-exp'){
-        console.log('abused system: expired time stacked area chart created');
         let colorArea = d3.scaleOrdinal()
             .domain(keys)
             .range(['#616161','#FF5722','rgba(97,97,97,0.25)','rgba(97,97,97,0.25)'])
@@ -838,7 +901,6 @@ function generateStackedArea(data,story){
         system.exit().remove();
 
     }else if(story == 'as-viol'){
-        console.log('abused system: violated space stacked area chart created');
         const colorArea = d3.scaleOrdinal()
             .domain(keys)
             .range(['#616161','#FF5722']);
@@ -976,6 +1038,8 @@ function mainView(){
     d3.selectAll('.g-business').classed('hidden',true);
 
     d3.selectAll('.g-wp').classed('hidden',false);
+    d3.select('.g-dots-in').classed('hidden',false);
+    d3.select('.g-dots-out').classed('hidden',false);
 
     uniformLineLength('off');
 }
@@ -990,6 +1054,9 @@ function wastedSpace(){
     d3.select('#parking').selectAll('.expired').classed('expired',false);
     d3.select('#parking').selectAll('.non-business').classed('non-business',false);
     d3.select('#parking').selectAll('.g-business').classed('hidden',true);
+
+    d3.select('.g-dots-in').classed('hidden',true);
+    d3.select('.g-dots-out').classed('hidden',true);
 
     d3.select('#parking').selectAll('.line-unused').classed('hidden',false);
     d3.select('#parking').selectAll('.line-violated').classed('hidden',true);
@@ -1018,6 +1085,8 @@ function abusedSystem(){
     d3.select('#parking').selectAll('.line-unused').classed('hidden',true);
     d3.select('#parking').selectAll('.line-util').style('stroke', null).style('stroke-width',null);
     d3.select('#parking').selectAll('.line-vacant').classed('hidden',true);
+    d3.select('.g-dots-in').classed('hidden',true);
+    d3.select('.g-dots-out').classed('hidden',true);
     d3.selectAll('.g-wp').classed('hidden',true);
     d3.selectAll('.g-ws').classed('hidden',true);
 
@@ -1035,6 +1104,9 @@ function spotHotness(){
     d3.selectAll('.btn-abuse').classed('hidden',true);
 
     updateLegend('sh');
+
+    d3.select('.g-dots-in').classed('hidden',true);
+    d3.select('.g-dots-out').classed('hidden',true);
 
     d3.select('#parking').selectAll('.line-unused').classed('hidden',true);
     d3.select('#parking').selectAll('.line-violated').classed('hidden',true);
@@ -1054,6 +1126,8 @@ function spotHotness(){
 }
 
 function updateLegend(story){
+    d3.select('#legend-gradient').classed('hidden',true);
+    d3.selectAll('.legend-dots').classed('hidden',true);
     if(story == 'sh'){
         d3.select('#legend-gradient')
             .classed('hidden',false)
@@ -1072,9 +1146,11 @@ function updateLegend(story){
                 }
             })
     }else{
-        d3.select('#legend-gradient').classed('hidden',true);
-
         if(story == 'wp'){
+            d3.selectAll('.legend-dots')
+                .classed('hidden',false)
+                .attr('transform',(d,i) => `translate(${-(i*100)-100-80},5)`);
+
             d3.selectAll('.legend-category')
                 .each(function(d,i){
                     d3.select(this).classed('hidden',(i == 0) ? false : true);
