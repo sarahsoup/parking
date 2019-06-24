@@ -81,7 +81,21 @@
 }
 
 .dot-out {
-    fill: none;
+    fill: white;
+    stroke-width: 1px;
+    stroke: #616161;
+}
+
+.abused-in {
+    fill: #FF5722 !important;
+    stroke: #FF5722 !important;
+}
+
+.abused-out {
+    stroke: #FF5722 !important;
+}
+
+.dot-link {
     stroke-width: 1px;
     stroke: #616161;
 }

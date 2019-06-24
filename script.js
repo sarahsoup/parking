@@ -2,6 +2,7 @@
 let obj = {};
 obj.loc = 'muse';
 obj.day = 'day-10';
+obj.missing = [];
 
 d3.select('#btn-14').classed('hidden',true);
 
@@ -20,6 +21,8 @@ const boundaries = [
     }
 ];
 
+const msInt = 15000;
+const sExpired = 7200;
 const scaleTime = d3.scaleTime();
 const scaleSpace = {};
 scaleSpace.slot0 = d3.scaleLinear();
@@ -151,6 +154,27 @@ Promise.all([
         l.values.forEach(function(d){
             d.values.forEach(function(t,n){
                 // for each slot...
+
+                // identify missing timeframes
+                if(n != 0){
+                    const secPrev = d.values[n-1].frametime.getSeconds();
+                    const minPrev = d.values[n-1].frametime.getMinutes();
+                    const sec = t.frametime.getSeconds();
+                    const min = t.frametime.getMinutes();
+                    const msDiff = t.frametime - d.values[n-1].frametime;
+                    if(msDiff > msInt){
+                        const missing = (msDiff-msInt)/msInt;
+                        obj.missing.push({
+                            loc: l.key,
+                            day: d.key,
+                            num: missing,
+                            prev: d.values[n-1],
+                            next: t
+                        })
+                    }
+                }
+
+
                 let violDistTotal = 0;
                 let i=0;
                 while(i < 4){
@@ -213,6 +237,9 @@ Promise.all([
     })
 
     console.log(data[0].values[0]);
+    console.log(obj.missing);
+
+    obj.data = data;
 
     enterExitUpdate(data[0].values[0]);
     generateStackedArea(data[0].values[0],'wp');
@@ -301,10 +328,10 @@ function parse(row){
     const durS2 = +row.accum_time_used_slot_2_per_vehicle;
     const durS3 = +row.accum_time_used_slot_3_per_vehicle;
 
-    const expiredS0 = (durS0 >= 7200) ? 1 : 0;
-    const expiredS1 = (durS1 >= 7200) ? 1 : 0;
-    const expiredS2 = (durS2 >= 7200) ? 1 : 0;
-    const expiredS3 = (durS3 >= 7200) ? 1 : 0;
+    const expiredS0 = (durS0 >= sExpired) ? 1 : 0;
+    const expiredS1 = (durS1 >= sExpired) ? 1 : 0;
+    const expiredS2 = (durS2 >= sExpired) ? 1 : 0;
+    const expiredS3 = (durS3 >= sExpired) ? 1 : 0;
 
     let metered_total = 0;
     let expired_total = 0;
@@ -407,6 +434,7 @@ function enterExitUpdate(data){
     const slotCoord = boundaries.find(d => d.key == obj.loc).values;
     const axisSpace = 60;
     const paddingBottom = 30;
+    const slotDot = 12;
     const slotH = Math.floor((obj.h-axisSpace-paddingBottom)/(slotCoord.length*2));
     scaleSpace.slot0.domain([slotCoord[0],slotCoord[1]]).range([axisSpace+slotH,axisSpace+(slotH*2)]);
     scaleSpace.slot1.domain([slotCoord[1],slotCoord[2]]).range([axisSpace+(slotH*2),axisSpace+(slotH*3)]);
@@ -464,13 +492,16 @@ function enterExitUpdate(data){
             const dotsOut = d3.select(`.g-dots-out-s${i}`).selectAll('circle')
                 .data(e.values.filter(d => d[`out_s${i}`] == 1));
 
-            // add new dots and update
+            const dotsLink = d3.select(`.g-dots-link-s${i}`).selectAll('line')
+                .data(e.values.filter(d => d[`in_s${i}`] == 1));
+
+            // add new dots, update, and remove
             dotsIn.enter()
                 .append('circle')
                 .attr('class',`dot-in dot-in-s${i}`)
                 .merge(dotsIn)
                 .attr('cx', d => scaleTime(d.frametime_strd))
-                .attr('cy', (i*7))
+                .attr('cy', (i*slotDot))
                 .attr('r', 3);
 
             dotsOut.enter()
@@ -478,12 +509,25 @@ function enterExitUpdate(data){
                 .attr('class',`dot-out dot-out-s${i}`)
                 .merge(dotsOut)
                 .attr('cx', d => scaleTime(d.frametime_strd))
-                .attr('cy', (i*7))
+                .attr('cy', (i*slotDot))
                 .attr('r', 3);
 
-            // remove old dots
-            dotsIn.exit().remove();
-            dotsOut.exit().remove();
+            const out = e.values.filter(d => d[`out_s${i}`] == 1);
+            dotsLink.enter()
+                .append('line')
+                .attr('class',`dot-link dot-link-${i}`)
+                .merge(dotsLink)
+                .attr('x1', (d,ii) => (d.frametime_strd - out[ii].frametime_strd < 0) ? Math.min(scaleTime(d.frametime_strd)+3,scaleTime(out[ii].frametime_strd)-3) : Math.min(scaleTime(d.frametime_strd)+3,scaleTime(out[ii+1].frametime_strd)-3))
+                .attr('x2', function(d,ii){
+                    return (d.frametime_strd - out[ii].frametime_strd < 0) ? scaleTime(out[ii].frametime_strd)-3 : scaleTime(out[ii+1].frametime_strd)-3;
+                })
+                .attr('y1', i*slotDot)
+                .attr('y2', i*slotDot);
+
+                // remove old elements
+                dotsIn.exit().remove();
+                dotsOut.exit().remove();
+                dotsLink.exit().remove();
 
             i++;
         }
@@ -608,13 +652,18 @@ function enterExitUpdate(data){
                 .call(axisTime)
                 .attr('transform',`translate(0,${40})`);
 
-            const dotsIn = day.append('g')
-                .attr('class','g-dots-in')
+            const dots = day.append('g')
+                .attr('class','g-dots')
                 .attr('transform',`translate(0,${60})`);
 
-            const dotsOut = day.append('g')
-                .attr('class','g-dots-out')
-                .attr('transform',`translate(0,${60})`);
+            const dotsIn = dots.append('g')
+                .attr('class','g-dots-in');
+
+            const dotsOut = dots.append('g')
+                .attr('class','g-dots-out');
+
+            const dotsLink = dots.append('g')
+                .attr('class','g-dots-link')
 
             let i = 0;
             while(i < 4){
@@ -624,7 +673,7 @@ function enterExitUpdate(data){
                     .append('circle')
                     .attr('class',`dot-in dot-in-s${i}`)
                     .attr('cx', d => scaleTime(d.frametime_strd))
-                    .attr('cy', i*7)
+                    .attr('cy', i*slotDot)
                     .attr('r', 3);
 
                 dotsOut.append('g').attr('class',`g-dots-out-s${i}`).selectAll(`.dot-out-s${i}`)
@@ -633,8 +682,24 @@ function enterExitUpdate(data){
                     .append('circle')
                     .attr('class',`dot-out dot-out-s${i}`)
                     .attr('cx', d => scaleTime(d.frametime_strd))
-                    .attr('cy', i*7)
+                    .attr('cy', i*slotDot)
                     .attr('r', 3);
+
+                dotsLink.append('g').attr('class',`g-dots-link-s${i}`).selectAll(`.dot-link-s${i}`)
+                    .data(e.values.filter(d => d[`in_s${i}`] == 1))
+                    .enter()
+                    .append('line')
+                    .attr('class',`dot-link dot-link-${i}`)
+                    .attr('x1', function(d,ii){
+                        const out = dotsOut.selectAll(`.dot-out-s${i}`).filter((e,iii) => ii == iii).data();
+                        return Math.min(scaleTime(d.frametime_strd)+3,scaleTime(out[0].frametime_strd)-3);
+                    })
+                    .attr('x2', function(d,ii){
+                        const out = dotsOut.selectAll(`.dot-out-s${i}`).filter((e,iii) => ii == iii).data();
+                        return scaleTime(out[0].frametime_strd)-3;
+                    })
+                    .attr('y1', i*slotDot)
+                    .attr('y2', i*slotDot);
 
                     i++;
             }
@@ -1040,6 +1105,9 @@ function mainView(){
     d3.selectAll('.g-wp').classed('hidden',false);
     d3.select('.g-dots-in').classed('hidden',false);
     d3.select('.g-dots-out').classed('hidden',false);
+    d3.select('.g-dots-link').classed('hidden',false);
+    d3.selectAll('.dot-in').classed('abused-in',false);
+    d3.selectAll('.dot-out').classed('abused-out',false);
 
     uniformLineLength('off');
 }
@@ -1057,6 +1125,7 @@ function wastedSpace(){
 
     d3.select('.g-dots-in').classed('hidden',true);
     d3.select('.g-dots-out').classed('hidden',true);
+    d3.select('.g-dots-link').classed('hidden',true);
 
     d3.select('#parking').selectAll('.line-unused').classed('hidden',false);
     d3.select('#parking').selectAll('.line-violated').classed('hidden',true);
@@ -1080,13 +1149,15 @@ function abusedSystem(){
 
     d3.selectAll('.btn-abuse').classed('hidden',false);
 
+    d3.select('.g-dots-in').classed('hidden',false);
+    d3.select('.g-dots-out').classed('hidden',false);
+    d3.select('.g-dots-link').classed('hidden',false);
+
     updateLegend('as');
 
     d3.select('#parking').selectAll('.line-unused').classed('hidden',true);
     d3.select('#parking').selectAll('.line-util').style('stroke', null).style('stroke-width',null);
     d3.select('#parking').selectAll('.line-vacant').classed('hidden',true);
-    d3.select('.g-dots-in').classed('hidden',true);
-    d3.select('.g-dots-out').classed('hidden',true);
     d3.selectAll('.g-wp').classed('hidden',true);
     d3.selectAll('.g-ws').classed('hidden',true);
 
@@ -1107,6 +1178,7 @@ function spotHotness(){
 
     d3.select('.g-dots-in').classed('hidden',true);
     d3.select('.g-dots-out').classed('hidden',true);
+    d3.select('.g-dots-link').classed('hidden',true);
 
     d3.select('#parking').selectAll('.line-unused').classed('hidden',true);
     d3.select('#parking').selectAll('.line-violated').classed('hidden',true);
@@ -1149,7 +1221,7 @@ function updateLegend(story){
         if(story == 'wp'){
             d3.selectAll('.legend-dots')
                 .classed('hidden',false)
-                .attr('transform',(d,i) => `translate(${-(i*100)-100-80},5)`);
+                .attr('transform',(d,i) => `translate(${-(i*90)-100-80},5)`);
 
             d3.selectAll('.legend-category')
                 .each(function(d,i){
@@ -1180,6 +1252,10 @@ function updateLegend(story){
                 })
         }else if(story == 'as'){
 
+            d3.selectAll('.legend-dots')
+                .classed('hidden',false)
+                .attr('transform',(d,i) => `translate(${-(i*90)-220-80},5)`);
+
             const label = (d3.select('.btn-abuse-active').attr('id') == 'btn-expired') ? 'expired meter' : 'violated space';
 
             d3.selectAll('.legend-category').classed('hidden',false)
@@ -1205,6 +1281,8 @@ function changeAbuse(abuse){
         d3.selectAll('.g-as-exp').classed('hidden',false);
         d3.select('#parking').selectAll('.line-violated').classed('hidden',true);
 
+        d3.selectAll('.dot-in').classed('abused-in',false);
+
         d3.select('#parking').selectAll('.g-day')
             .each(function(e){
                 let i=0;
@@ -1214,11 +1292,27 @@ function changeAbuse(abuse){
                         .selectAll('.line-util')
                         .classed('expired', d => (d.business_hrs == 1 && d[`expired_s${i}`] == 1) ? true : false)
                         .classed('non-business', d => (d.business_hrs == 0) ? true : false) 
+
+                        d3.selectAll(`.dot-out-s${i}`).classed('abused-out', d => (d.business_hrs == 1 && (d[`expired_s${i}`] == 1 || d[`dur_final_s${i}`] >= sExpired )) ? true : false);
             
                     i++;
                 }
             })
     }else{
+        const slotCoord = boundaries.find(d => d.key == obj.loc).values;
+        let i = 0;
+        while(i < 4){
+            d3.selectAll(`.dot-in-s${i}`).classed('abused-in',d => (d[`util_s${i}`] > 0 && (d[`coord_start_s${i}`] < slotCoord[i] || d[`coord_end_s${i}`] > slotCoord[i+1])) ? true : false);
+            d3.selectAll(`.dot-out-s${i}`).classed('abused-out',function(d){
+                const loc = obj.data.map(e => e.key).indexOf(obj.loc);
+                const day = obj.data[loc].values.map(e => e.key).indexOf(obj.day);
+                const time = obj.data[loc].values[day].values.map(e => e.frame).indexOf(d.frame);
+                const prev = obj.data[loc].values[day].values[time-1];
+                return (prev[`util_s${i}`] > 0 && (prev[`coord_start_s${i}`] < slotCoord[i] || prev[`coord_end_s${i}`] > slotCoord[i+1])) ? true : false;
+            })
+            i++
+        }
+
         d3.selectAll('.g-as-exp').classed('hidden',true);
         d3.select('.g-as-viol').classed('hidden',false);
         d3.select('#parking').selectAll('.line-violated').classed('hidden',false);
